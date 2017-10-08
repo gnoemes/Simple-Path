@@ -7,4 +7,6 @@
     <string name="action_settings">Settings</string>
     <string name="title_activity_maps">Map</string>
     <string name="msg.hint.search">Search</string>
+    <string name="msg.hint.from">From</string>
+    <string name="msg.hint.to">To</string>
 </resources>

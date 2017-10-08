@@ -1,7 +1,6 @@
 package com.gnoemes.simplepath;
 
 import android.Manifest;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
@@ -11,69 +10,185 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
-import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.CardView;
+import android.util.Log;
 import android.view.Gravity;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.AutoCompleteTextView;
 import android.widget.ImageView;
 
+import com.arellomobile.mvp.MvpAppCompatActivity;
+import com.arellomobile.mvp.presenter.InjectPresenter;
+import com.arellomobile.mvp.presenter.ProvidePresenter;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.places.Place;
+import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
+import com.google.android.gms.location.places.ui.PlaceSelectionListener;
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 
-public class MainActivity extends AppCompatActivity
-        implements NavigationView.OnNavigationItemSelectedListener, OnMapReadyCallback {
+import butterknife.BindView;
+import butterknife.ButterKnife;
 
+public class MainActivity extends MvpAppCompatActivity
+        implements NavigationView.OnNavigationItemSelectedListener, OnMapReadyCallback, MainView {
+
+    @InjectPresenter
+    MainPresenter presenter;
+
+    @ProvidePresenter
+    MainPresenter providePresenter() {
+        return new MainPresenter(this);
+    }
+
+    private PlaceAutocompleteFragment searchFragment;
+    private PlaceAutocompleteFragment searchPathFrom;
+    private PlaceAutocompleteFragment searchPathTo;
     private GoogleMap mMap;
-    private Marker from;
-    private Marker to;
+    private Marker fromMarker;
+    private Marker toMarker;
+    private LatLng fromLatLng;
     private LatLng toLatLng;
-    private FloatingActionButton findPathFab;
-    private FloatingActionButton myLocationFab;
-    private AutoCompleteTextView search;
+    private Polyline path;
+    @BindView(R.id.fab_accept)
+    FloatingActionButton acceptPathFab;
+    @BindView(R.id.fab_find_path)
+    FloatingActionButton findPathFab;
+    @BindView(R.id.fab_my_location)
+    FloatingActionButton myLocationFab;
+    @BindView(R.id.path_card)
+    CardView pathCard;
+    @BindView(R.id.search_card)
+    CardView searchCard;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ButterKnife.bind(this);
 
-        findPathFab = (FloatingActionButton) findViewById(R.id.fab_find_path);
-        myLocationFab = (FloatingActionButton) findViewById(R.id.fab_my_location);
-        search = (AutoCompleteTextView) findViewById(R.id.search_auto_text_view);
-
-        initListeners();
         initNavigationMenu();
+        initFragments();
+        initListeners();
 
+        if (savedInstanceState != null) {
+            searchCard.setVisibility(savedInstanceState.getInt("searchCard") == View.GONE ? View.GONE: View.VISIBLE);
+            pathCard.setVisibility(savedInstanceState.getInt("pathCard") == View.GONE ? View.GONE: View.VISIBLE);
+            acceptPathFab.setVisibility(savedInstanceState.getInt("acceptPathFab") == View.GONE ? View.GONE: View.VISIBLE);
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt("searchCard",searchCard.getVisibility());
+        outState.putInt("pathCard",pathCard.getVisibility());
+        outState.putInt("acceptPathFab",acceptPathFab.getVisibility());
+    }
+
+    private void initFragments() {
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-
-        Intent intent = new Intent(this,MapsActivity.class);
-
+        searchFragment = (PlaceAutocompleteFragment) getFragmentManager().findFragmentById(R.id.autocomplete_fragment);
+        ((View) findViewById(R.id.place_autocomplete_search_button)).setVisibility(View.GONE);
+        findViewById(R.id.place_autocomplete_clear_button).setPadding(12,12,12,12);
+        searchFragment.setHint("Search");
+        searchPathFrom = (PlaceAutocompleteFragment) getFragmentManager().findFragmentById(R.id.autocomplete_fragment_path_from);
+        pathCard.getChildAt(0).findViewById(R.id.linearPath).findViewById(R.id.autocomplete_fragment_path_from).findViewById(R.id.place_autocomplete_search_button).setVisibility(View.GONE);
+        pathCard.getChildAt(0).findViewById(R.id.linearPath).findViewById(R.id.autocomplete_fragment_path_from).findViewById(R.id.place_autocomplete_clear_button).setPadding(12,12,12,12);
+        searchPathFrom.setHint("From");
+        searchPathTo = (PlaceAutocompleteFragment) getFragmentManager().findFragmentById(R.id.autocomplete_fragment_path_to);
+        pathCard.getChildAt(0).findViewById(R.id.linearPath).findViewById(R.id.autocomplete_fragment_path_to).findViewById(R.id.place_autocomplete_search_button).setVisibility(View.GONE);
+        pathCard.getChildAt(0).findViewById(R.id.linearPath).findViewById(R.id.autocomplete_fragment_path_to).findViewById(R.id.place_autocomplete_clear_button).setPadding(12,12,12,12);
+        searchPathTo.setHint("To");
     }
+
 
     private void initListeners() {
         myLocationFab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(MainActivity.this,MapsActivity.class);
-
+               presenter.showMyLocation();
             }
         });
 
         findPathFab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+                 if (searchCard.getVisibility() == View.VISIBLE) {
+                     searchCard.setVisibility(View.GONE);
+                     pathCard.setVisibility(View.VISIBLE);
+                     acceptPathFab.setVisibility(View.VISIBLE);
+                 } else {
+                     searchCard.setVisibility(View.VISIBLE);
+                     pathCard.setVisibility(View.GONE);
+                     acceptPathFab.setVisibility(View.GONE);
+                 }
             }
         });
 
+        acceptPathFab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (fromLatLng != null && toLatLng != null) {
+                    clearPrevPath();
+                    presenter.requestDirection(fromLatLng,toLatLng);
+                } else  {
+                    Snackbar.make(view,"Choose origin and destination",Snackbar.LENGTH_SHORT)
+                        .setAction("Action",null).show();
+                }
+            }
+        });
 
+        searchFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(Place place) {
+                presenter.requestDirection(place.getLatLng());
+                clearPrevPath();
+            }
+
+            @Override
+            public void onError(Status status) {
+
+                Log.e("DEVE", "onError: " + status.getStatusMessage());
+            }
+        });
+
+        searchPathFrom.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(Place place) {
+                fromLatLng = place.getLatLng();
+            }
+
+            @Override
+            public void onError(Status status) {
+
+            }
+        });
+
+        searchPathTo.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(Place place) {
+                toLatLng = place.getLatLng();
+            }
+
+            @Override
+            public void onError(Status status) {
+
+            }
+        });
     }
+
+
 
     @Override
     public void onBackPressed() {
@@ -85,27 +200,6 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.main, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
 
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
@@ -113,24 +207,12 @@ public class MainActivity extends AppCompatActivity
         // Handle navigation view item clicks here.
         int id = item.getItemId();
 
-        if (id == R.id.nav_camera) {
-            // Handle the camera action
-        } else if (id == R.id.nav_gallery) {
-
-        } else if (id == R.id.nav_slideshow) {
-
-        } else if (id == R.id.nav_manage) {
-
-        } else if (id == R.id.nav_share) {
-
-        } else if (id == R.id.nav_send) {
-
-        }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
     }
+
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -138,15 +220,16 @@ public class MainActivity extends AppCompatActivity
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
             //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
+            // here toMarker request the missing permissions, and then overriding
             //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
             //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
+            // toMarker handle the case where the user grants the permission. See the documentation
             // for ActivityCompat#requestPermissions for more details.
             return;
         }
         mMap.setMyLocationEnabled(true);
         mMap.getUiSettings().setMyLocationButtonEnabled(false);
+        mMap.setOnMapLoadedCallback(presenter);
     }
 
     private void initNavigationMenu() {
@@ -171,4 +254,51 @@ public class MainActivity extends AppCompatActivity
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
     }
+
+    @Override
+    public void showLocation(LatLng location) {
+        if (mMap != null) {
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location,16.5f));
+        }
+    }
+
+    @Override
+    public void setDirection(PolylineOptions direction, LatLngBounds bounds) {
+        if (mMap != null) {
+            path = mMap.addPolyline(direction);
+            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds,130));
+        }
+
+
+        Log.i("DEVE", "setDirection: ");
+    }
+
+    @Override
+    public void setMarkers(MarkerOptions... markerOptions) {
+        if (mMap != null) {
+            fromMarker = mMap.addMarker(markerOptions[0]);
+            toMarker = mMap.addMarker(markerOptions[1]);
+        }
+        Log.i("DEVE", "setMarkers: ");
+    }
+
+    @Override
+    public void updateLastConfiguration(PolylineOptions direction, LatLngBounds bounds, MarkerOptions... markerOptions) {
+        fromMarker = mMap.addMarker(markerOptions[0]);
+        toMarker = mMap.addMarker(markerOptions[1]);
+        path = mMap.addPolyline(direction);
+        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds,130));
+    }
+
+    public void clearPrevPath() {
+        if (fromMarker != null && toMarker != null) {
+            fromMarker.remove();
+            toMarker.remove();
+        }
+        if (path != null) {
+            path.remove();
+        }
+        Log.i("DEVE", "clearPrevPath: ");
+    }
+
 }
