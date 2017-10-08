@@ -8,6 +8,18 @@
 
     <include layout="@layout/content_main" />
 
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/fab_accept"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|top"
+        android:visibility="gone"
+        app:layout_anchor="@+id/fab_my_location"
+        app:layout_anchorGravity="start"
+        app:backgroundTint="@android:color/white"
+        app:srcCompat="@drawable/ic_check_grey_900_24dp"
+        app:useCompatPadding="true"
+        app:elevation="2dp"/>
 
 
     <android.support.design.widget.FloatingActionButton
