@@ -59,6 +59,7 @@ public class MainActivity extends MvpAppCompatActivity
     private LatLng fromLatLng;
     private LatLng toLatLng;
     private Polyline path;
+    private int mapType;
     @BindView(R.id.fab_accept)
     FloatingActionButton acceptPathFab;
     @BindView(R.id.fab_find_path)
@@ -89,6 +90,9 @@ public class MainActivity extends MvpAppCompatActivity
             acceptPathFab.setVisibility(savedInstanceState.getInt("acceptPathFab") == View.GONE ? View.GONE: View.VISIBLE);
             fromLatLng = savedInstanceState.getParcelable("from");
             toLatLng = savedInstanceState.getParcelable("to");
+            mapType = savedInstanceState.getInt("mapType",1);
+        } else {
+            mapType = 1;
         }
     }
 
@@ -100,6 +104,7 @@ public class MainActivity extends MvpAppCompatActivity
         outState.putInt("acceptPathFab",acceptPathFab.getVisibility());
         outState.putParcelable("from",fromLatLng);
         outState.putParcelable("to",toLatLng);
+        outState.putInt("mapType",mMap.getMapType());
     }
 
     private void initFragments() {
@@ -151,10 +156,12 @@ public class MainActivity extends MvpAppCompatActivity
                      searchCard.setVisibility(View.GONE);
                      pathCard.setVisibility(View.VISIBLE);
                      acceptPathFab.setVisibility(View.VISIBLE);
+                     findPathFab.setImageResource(R.drawable.ic_search_white_24dp);
                  } else {
                      searchCard.setVisibility(View.VISIBLE);
                      pathCard.setVisibility(View.GONE);
                      acceptPathFab.setVisibility(View.GONE);
+                     findPathFab.setImageResource(R.drawable.ic_directions_white_24dp);
                  }
             }
         });
@@ -227,8 +234,24 @@ public class MainActivity extends MvpAppCompatActivity
     public boolean onNavigationItemSelected(MenuItem item) {
         // Handle navigation view item clicks here.
         int id = item.getItemId();
+        switch (id) {
+            case R.id.nav_standard:
+                if (mMap != null) {
+                    mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+                }
+                break;
+             case R.id.nav_satellite:
+                if (mMap != null) {
+                    mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
+                }
+                break;
+             case R.id.nav_relief:
+                if (mMap != null) {
+                    mMap.setMapType(GoogleMap.MAP_TYPE_TERRAIN);
+                }
+                break;
 
-
+        }
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
@@ -248,6 +271,7 @@ public class MainActivity extends MvpAppCompatActivity
             // for ActivityCompat#requestPermissions for more details.
             return;
         }
+        mMap.setMapType(mapType);
         mMap.setMyLocationEnabled(true);
         mMap.getUiSettings().setMyLocationButtonEnabled(false);
         mMap.setOnMapLoadedCallback(presenter);
@@ -289,7 +313,11 @@ public class MainActivity extends MvpAppCompatActivity
             path = mMap.addPolyline(direction);
             mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds,130));
         }
-
+        if (mMap != null && mMap.getMapType() == GoogleMap.MAP_TYPE_SATELLITE) {
+            final View view = findViewById(R.id.coordinator);
+            Snackbar.make(view,"Can't find direction in Satellite mode",Snackbar.LENGTH_LONG)
+                    .setAction("Error",null).show();
+        }
 
         Log.i("DEVE", "setDirection: ");
     }
