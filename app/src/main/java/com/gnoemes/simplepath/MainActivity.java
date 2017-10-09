@@ -15,6 +15,7 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageView;
 
 import com.arellomobile.mvp.MvpAppCompatActivity;
@@ -68,6 +69,8 @@ public class MainActivity extends MvpAppCompatActivity
     CardView pathCard;
     @BindView(R.id.search_card)
     CardView searchCard;
+    @BindView(R.id.swap)
+    ImageView swapBtn;
 
 
     @Override
@@ -84,6 +87,8 @@ public class MainActivity extends MvpAppCompatActivity
             searchCard.setVisibility(savedInstanceState.getInt("searchCard") == View.GONE ? View.GONE: View.VISIBLE);
             pathCard.setVisibility(savedInstanceState.getInt("pathCard") == View.GONE ? View.GONE: View.VISIBLE);
             acceptPathFab.setVisibility(savedInstanceState.getInt("acceptPathFab") == View.GONE ? View.GONE: View.VISIBLE);
+            fromLatLng = savedInstanceState.getParcelable("from");
+            toLatLng = savedInstanceState.getParcelable("to");
         }
     }
 
@@ -93,6 +98,8 @@ public class MainActivity extends MvpAppCompatActivity
         outState.putInt("searchCard",searchCard.getVisibility());
         outState.putInt("pathCard",pathCard.getVisibility());
         outState.putInt("acceptPathFab",acceptPathFab.getVisibility());
+        outState.putParcelable("from",fromLatLng);
+        outState.putParcelable("to",toLatLng);
     }
 
     private void initFragments() {
@@ -118,6 +125,22 @@ public class MainActivity extends MvpAppCompatActivity
             @Override
             public void onClick(View view) {
                presenter.showMyLocation();
+            }
+        });
+
+        swapBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                EditText fromText =  searchPathFrom.getView().findViewById(R.id.place_autocomplete_search_input);
+                EditText toText =  searchPathTo.getView().findViewById(R.id.place_autocomplete_search_input);
+                String from = toText.getText().toString();
+                String to = fromText.getText().toString();
+                Log.i("DEVE", "onClick: " + from +" " + to);
+                searchPathFrom.setText(from);
+                searchPathTo.setText(to);
+                LatLng tmp = fromLatLng;
+                fromLatLng = toLatLng;
+                toLatLng = tmp;
             }
         });
 
@@ -187,8 +210,6 @@ public class MainActivity extends MvpAppCompatActivity
             }
         });
     }
-
-
 
     @Override
     public void onBackPressed() {
@@ -288,6 +309,13 @@ public class MainActivity extends MvpAppCompatActivity
         toMarker = mMap.addMarker(markerOptions[1]);
         path = mMap.addPolyline(direction);
         mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds,130));
+    }
+
+    @Override
+    public void showError() {
+        final View view = findViewById(R.id.coordinator);
+        Snackbar.make(view,"Check connection",Snackbar.LENGTH_LONG)
+                .setAction("Error",null).show();
     }
 
     public void clearPrevPath() {

@@ -41,18 +41,27 @@ public class MainPresenter extends MvpPresenter<MainView> implements DirectionCa
     }
 
     public void showMyLocation() {
-        getViewState().showLocation(getMyLocation());
+        LatLng myLoc = getMyLocation();
+        if (myLoc == null) {
+            getViewState().showError();
+        } else {
+            getViewState().showLocation(myLoc);
+        }
+
     }
 
     public void requestDirection(LatLng to) {
-
         from = getMyLocation();
-        GoogleDirection.withServerKey(API_KEY)
-                .from(from)
-                .to(to)
-                .transitMode(TransportMode.DRIVING)
-                .execute(this);
-        this.to = to;
+        if (from == null) {
+            getViewState().showError();
+        } else {
+            GoogleDirection.withServerKey(API_KEY)
+                    .from(from)
+                    .to(to)
+                    .transitMode(TransportMode.DRIVING)
+                    .execute(this);
+            this.to = to;
+        }
         Log.i("DEVE", "requestDirection: ");
     }
 
@@ -86,7 +95,10 @@ public class MainPresenter extends MvpPresenter<MainView> implements DirectionCa
             String provider = lm.getBestProvider(criteria, true);
             myLocation = lm.getLastKnownLocation(provider);
         }
-        return new LatLng(myLocation.getLatitude(),myLocation.getLongitude());
+        if (myLocation != null) {
+           return new LatLng(myLocation.getLatitude(),myLocation.getLongitude());
+        }
+        return null;
     }
 
     @Override

@@ -18,5 +18,6 @@ public interface MainView extends MvpView {
     void setMarkers(MarkerOptions... markerOptions);
     @StateStrategyType(SkipStrategy.class)
     void updateLastConfiguration(PolylineOptions direction, LatLngBounds bounds, MarkerOptions... markerOptions);
-
+    @StateStrategyType(SkipStrategy.class)
+    void showError();
 }
